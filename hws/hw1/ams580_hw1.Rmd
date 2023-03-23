@@ -1,0 +1,71 @@
+---
+title: "ams580_hw1"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-02-12"
+---
+
+#Read the Data
+```{r}
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/hw1_glm/banknote.csv")
+```
+
+#Quick Look and Fix $class
+```{r}
+str(data)
+head(data)
+data$class <- as.factor(data$class)
+str(data)
+is.factor(data$class)
+```
+#Splitting the Data
+```{r}
+library(lattice)
+library(ggplot2)
+library(caret)
+set.seed(123)
+cursor <- createDataPartition(data$class,p=0.8,list=FALSE)
+training <- data[cursor,]
+testing <- data[-cursor,]
+```
+
+#Regression Model
+```{r}
+model <- glm (class ~ ., data = training, family ='binomial')
+summary(model)
+
+```
+All coefs are significant except entropy since it gave out 0.217156.
+This gives regression model of:
+P = 1 / (e^(-8.5895+9.3611(intercept)+4.6968(skewness)+6.1372(curtosis))) where P indicates the probability for genuinity.
+
+#Confusion Matrix
+```{r}
+predict_testing<-predict(model, testing, type= 'response' )
+predict_training<-predict(model, training, type= 'response' )
+predict_testing<-predict(model, testing, type= 'response' )
+confusion_matrix_training <- table(actual = training$class, prediction = predict_training > 0.8)
+confusion_matrix_testing <- table(actual = testing$class, prediction = predict_testing > 0.8)
+confusion_matrix_training
+```
+#Accuracy
+```{r}
+accuracy_training<-sum(diag(confusion_matrix_training))/sum(confusion_matrix_training)
+accuracy_training
+accuracy_testing<-sum(diag(confusion_matrix_testing))/sum(confusion_matrix_testing)
+accuracy_testing
+```
+#Sensitivity
+```{r}
+sensitivity_training <-confusion_matrix_training[2,2]/(confusion_matrix_training[2,2]+confusion_matrix_training[2,1])
+sensitivity_training
+sensitivity_testing <-confusion_matrix_testing[2,2]/(confusion_matrix_testing[2,2]+confusion_matrix_testing[2,1])
+sensitivity_testing
+```
+#Specificity
+```{r}
+specificity_training = confusion_matrix_training[1,1]/(confusion_matrix_training[1,1]+confusion_matrix_training[1,2])
+specificity_training
+specificity_testing = confusion_matrix_testing[1,1]/(confusion_matrix_testing[1,1]+confusion_matrix_testing[1,2])
+specificity_testing
+```

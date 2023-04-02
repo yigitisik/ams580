@@ -1,0 +1,150 @@
+---
+title: "ams580_hw3"
+author: "Mustafa Yigit Isik"
+date: "2023-02-20"
+output: word_document
+---
+#**Load Packages**
+```{r}
+if (!requireNamespace("caTools")) install.packages('caTools')
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("rpart")) install.packages('rpart')
+if (!requireNamespace("rattle")) install.packages('rattle')
+library(caTools)
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+```
+
+#__Read the data__
+```{r}
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/hw3_CART/banknote.csv")
+
+#removes potential rows where at least one cell is empty 
+data <- na.omit(data)
+cat('There are', nrow(data), 'rows left.')
+data$class <- as.factor(data$class)
+```
+
+#**Split Data**
+```{r}
+set.seed(123)
+training.samples <- data$class %>% 
+  createDataPartition(p = 0.8, list = FALSE)
+training  <- data[training.samples, ]
+testing <- data[-training.samples, ]
+```
+
+#**Full Tree and its Confusion Matrix ~ Problem 2**
+```{r}
+model <- rpart(class ~., data = training, control = rpart.control(cp=0))
+par(xpd = NA)
+fancyRpartPlot(model)
+```
+```{r}
+pred <- predict(model,newdata = testing, type ='class')
+pred <- ifelse(pred == 1, 'real', 'forged')
+table(pred,testing$class)
+```
+#**Prune the Data ~ Problem 3**
+
+To make tree more robust, weprune the full tree using the training data with 10-fold cross-validation. Please (1) show the complexity plot, (2) report the best CP value, and (3) draw the pruned tree using rattle.
+```{r}
+set.seed(123)
+model2 <- train(
+  class ~., data = training, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100)
+plot(model2)
+```
+```{r}
+model2$bestTune
+```
+```{r}
+fancyRpartPlot(model2$finalModel)
+```
+
+#**Check testing data via pruned version ~ Problem 4**
+
+Using optimal pruned tree to predict whether each check is forged or not in the testing data.
+
+Compute the confusion matrix and report the sensitivity, specificity and the overall accuracy for the testing data.
+```{r}
+pred <- predict(model2, newdata = testing)
+pred <- ifelse(pred == 1, 'real' , 'forged')
+matrix <- table(pred,testing$class)
+matrix
+```
+Sensitivity
+```{r}
+matrix[2,2]/(matrix[1,2] + matrix[2,2])
+```
+Specificity
+```{r}
+matrix[1,1]/(matrix[1,1] + matrix[2,1])
+```
+Accuracy
+```{r}
+(matrix[1,1]+matrix[2,2])/(sum(matrix))
+```
+
+#**Regression Model ~ Problem 5**
+```{r}
+data$class <- as.factor(data$class)
+model3 <- glm(class ~ . , data = training, family = binomial)
+summary(model3)
+```
+
+#Confusion Matrix based on Reg
+```{r}
+predict_training<-predict(model3, training, type= 'response' )
+predict_testing<-predict(model3, testing, type= 'response' )
+confusion_matrix_training <- table(actual = training$class, prediction = predict_training > 0.8)
+confusion_matrix_testing <- table(actual = testing$class, prediction = predict_testing > 0.8)
+confusion_matrix_training
+```
+
+#Accuracy
+```{r}
+accuracy_training<-sum(diag(confusion_matrix_training))/sum(confusion_matrix_training)
+accuracy_training
+accuracy_testing<-sum(diag(confusion_matrix_testing))/sum(confusion_matrix_testing)
+accuracy_testing
+```
+#Sensitivity
+```{r}
+sensitivity_training <-confusion_matrix_training[2,2]/(confusion_matrix_training[2,2]+confusion_matrix_training[2,1])
+sensitivity_training
+sensitivity_testing <-confusion_matrix_testing[2,2]/(confusion_matrix_testing[2,2]+confusion_matrix_testing[2,1])
+sensitivity_testing
+```
+#Specificity
+```{r}
+specificity_training = confusion_matrix_training[1,1]/(confusion_matrix_training[1,1]+confusion_matrix_training[1,2])
+specificity_training
+specificity_testing = confusion_matrix_testing[1,1]/(confusion_matrix_testing[1,1]+confusion_matrix_testing[1,2])
+specificity_testing
+```
+#Problem 6
+
+**From majority voting classifier, we import our findings [115, 5, 10, 147] here to test for sensitivity, accuracy, and specificity**
+```{r}
+majority <- c(115, 5, 10, 147)
+majority_matrix <- matrix(majority, nrow=2)
+majority_matrix
+```
+
+Sensitivity
+```{r}
+majority_matrix[2,2]/(majority_matrix[1,2] + majority_matrix[2,2])
+```
+Specificity
+```{r}
+majority_matrix[1,1]/(majority_matrix[1,1] + majority_matrix[2,1])
+```
+Accuracy
+```{r}
+(majority_matrix[1,1]+majority_matrix[2,2])/sum(majority_matrix)
+```

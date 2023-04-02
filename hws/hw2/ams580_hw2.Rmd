@@ -1,0 +1,81 @@
+---
+title: "ams580_hw2"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-02-14"
+---
+
+##Load Packages
+
+**Import packages if not haven't yet**
+```{r}
+if (!requireNamespace("lattice")) install.packages('lattice')
+if (!requireNamespace("ggplot2")) install.packages('ggplot2')
+if (!requireNamespace("caret")) install.packages('caret')
+
+library(lattice)
+library(ggplot2)
+library(caret)
+```
+
+##Read the Data
+
+**I have taken both test and training sets, put them together, and converted to csv file for convenience.** 
+```{r}
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/hw2_glm_extended/tennis.csv")
+```
+
+#Quick Look and Fix $class
+```{r}
+data$PlayTennis <- as.factor(data$PlayTennis)
+str(data)
+```
+
+#Splitting the Data
+
+**With 14/20 ratio for training, I used p=0.7 here and in confusion matrix as well.** 
+```{r}
+cursor <- createDataPartition(data$PlayTennis,p=0.7,list=FALSE)
+training  <- data[cursor, ]
+testing <- data[-cursor, ]
+```
+
+#Regression Model
+```{r}
+data$PlayTennis <- as.factor(data$PlayTennis)
+model <- glm(PlayTennis ~ . , data = training, family = binomial)
+summary(model)
+```
+
+#Confusion Matrix
+```{r}
+predict_training<-predict(model, training, type= 'response' )
+predict_testing<-predict(model, testing, type= 'response' )
+confusion_matrix_training <- table(actual = training$PlayTennis, prediction = predict_training > 0.7)
+confusion_matrix_testing <- table(actual = testing$PlayTennis, prediction = predict_testing > 0.7)
+confusion_matrix_training
+```
+
+#Accuracy
+```{r}
+accuracy_training<-sum(diag(confusion_matrix_training))/sum(confusion_matrix_training)
+accuracy_training
+accuracy_testing<-sum(diag(confusion_matrix_testing))/sum(confusion_matrix_testing)
+accuracy_testing
+```
+
+#Sensitivity
+```{r}
+sensitivity_training <-confusion_matrix_training[2,2]/(confusion_matrix_training[2,2]+confusion_matrix_training[2,1])
+sensitivity_training
+sensitivity_testing <-confusion_matrix_testing[2,2]/(confusion_matrix_testing[2,2]+confusion_matrix_testing[2,1])
+sensitivity_testing
+```
+
+#Specificity
+```{r}
+specificity_training = confusion_matrix_training[1,1]/(confusion_matrix_training[1,1]+confusion_matrix_training[1,2])
+specificity_training
+specificity_testing = confusion_matrix_testing[1,1]/(confusion_matrix_testing[1,1]+confusion_matrix_testing[1,2])
+specificity_testing
+```

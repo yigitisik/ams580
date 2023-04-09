@@ -1,0 +1,116 @@
+---
+title: "ams580_hw4"
+author: "Mustafa Yigit Isik"
+date: "2023-02-28"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+#**Problem 1-2**
+```{r}
+#loading packages and data
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+library(xlsx)
+library(glmnet)
+library(caTools)
+```
+
+```{r}
+#read the data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/hw4_pen_reg_models/Ames_Housing_Data.csv')
+data <- na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+#manipulate "CentralAir  : chr" column to 0-1 boolean to prevent problems later on
+data$CentralAir <- ifelse(data$CentralAir=="Yes",1,0)
+```
+
+```{r}
+str(data) # the response variable is 'SalePrice' and the others are used to fit the model
+set.seed(123)
+training.samples <- data$SalePrice %>% createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data) #1097 obs
+str(test.data) #363 obs
+```
+
+#**Problem 3 - Ridge Regression model**
+```{r}
+x <- model.matrix(SalePrice~., train.data)[,-1]
+y <- train.data$SalePrice
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+```
+Best lambda for ridge regression is `r cv$lambda.min` 
+
+```{r}
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min) # alpha=0: ridge
+coef(model)
+```
+
+
+```{r}
+x.test <- model.matrix(SalePrice ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+RMSE is 46610.31 and coefficient of determination is 0.6700558
+
+#**Problem 4 - LASSO model**
+```{r}
+cv <- cv.glmnet(x, y, alpha = 1)
+cv$lambda.min
+```
+Best lambda for LASSO is `r cv$lambda.min`
+
+```{r}
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min) # alpha=1: lasso
+coef(model)
+```
+
+```{r}
+x.test <- model.matrix(SalePrice ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+RMSE is 48332.64 and coefficient of determination is 0.6615918
+
+#**Problem 5 - Elastic Net model model**
+```{r}
+model <- train(
+  SalePrice ~., data = train.data, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+model$bestTune
+```
+
+```{r}
+coef(model$finalModel, model$bestTune$lambda)
+```
+
+```{r}
+x.test <- model.matrix(SalePrice ~., test.data)[,-1]
+predictions <- model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, test.data$SalePrice),
+  Rsquare = R2(predictions, test.data$SalePrice)
+)
+```
+RMSE is 48525.83	 and coefficient of determination is 0.6606771	
+
+#**Problem 6 - choose which model**
+```{r}
+#Proposed: Choice should be based on coeffiecient of determination. The coef of determination that is closest to 1 is 0.6700558 of Ridge Reg (compared to	0.6615918 & 0.6606771 for lasso and elastic net model), which leads me to believe that it's the best option of these 3 whereas the other 2 underfits during shrinkage process.
+```

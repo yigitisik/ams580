@@ -1,0 +1,109 @@
+---
+title: "ams580_quiz3"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-02-22"
+---
+#**Load Packages**
+```{r}
+if (!requireNamespace("caTools")) install.packages('caTools')
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("rpart")) install.packages('rpart')
+if (!requireNamespace("rattle")) install.packages('rattle')
+if (!requireNamespace("xlsx")) install.packages('xlsx')
+
+library(caTools)
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+library(xlsx)
+```
+
+#__Read the data__
+```{r}
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz 3/GreatUnknown.csv")
+
+#removes potential rows where at least one cell is empty 
+data <- subset(data, !is.na(w1) | !is.na(w2) | !is.na(w3) | !is.na(w4) | !is.na(w5) | !is.na(w6) | !is.na(w7) | !is.na(w8) | !is.na(w9) | !is.na(w10)
+| !is.na(w11)| !is.na(w12)| !is.na(y))
+cat('There are', nrow(data), 'rows left.')
+data$y <- as.factor(data$y)
+```
+
+#**Split Data**
+```{r}
+set.seed(456)
+training.samples <- data$y %>% 
+  createDataPartition(p = 0.75, list = FALSE)
+training  <- data[training.samples, ]
+testing <- data[-training.samples, ]
+```
+
+#**Full Tree, its Confusion Matrix, and Sens/Spec/Accuracy ~ Problem 2**
+```{r}
+model <- rpart(y ~., data = training, control = rpart.control(cp=0))
+par(xpd = NA)
+fancyRpartPlot(model)
+```
+
+```{r}
+pred1 <- predict(model,newdata = testing, type ='class')
+pred1 <- ifelse(pred1 == 1, '1', '0')
+confusionMatrix(factor(pred1), factor(testing$y), positive = '1')
+```
+
+#**Prune the Data ~ Problem 3**
+
+To make tree more robust, we prune the full tree using the training data with 10-fold cross-validation. Please (1) show the complexity plot, (2) report the best CP value, and (3) draw the pruned tree using rattle.
+```{r}
+# set.seed(456)
+model2 <- train(
+  y ~., data = training, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100)
+plot(model2)
+```
+```{r}
+model2$bestTune
+```
+```{r}
+fancyRpartPlot(model2$finalModel)
+```
+
+#**Check testing data via pruned version ~ Problem 4**
+
+Using optimal pruned tree to predict whether each check is 0 or 1 in the testing data.
+
+Compute the confusion matrix and report the sensitivity, specificity and the overall accuracy for the testing data.
+```{r}
+pred2 <- predict(model2, newdata = testing)
+pred2 <- ifelse(pred2 == 1, '1' , '0')
+confusionMatrix(factor(pred2), factor(testing$y), positive = '1')
+```
+
+#**Regression Model ~ Problem 5**
+```{r}
+data$y <- as.factor(data$y)
+model3 <- glm(y ~ . , data = training, family = binomial)
+summary(model3)
+```
+
+#Confusion Matrix based on Reg
+```{r}
+probabilities <- model3 %>% predict(testing, type = "response")
+pred3 <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(pred3), factor(testing$y), positive = '1')
+```
+#**Problem 6**
+
+```{r}
+update.test = cbind(testing, pred1, pred2, pred3)
+write.xlsx(update.test, 'testingquiz3.xlsx', sheetName = 'testingquiz3')
+
+pred = cbind(pred1, pred2, pred3)
+pred.m = apply(pred,1,function(x) names(which.max(table(x)))) 
+pred.m = as.numeric(pred.m)
+confusionMatrix(factor(pred.m), factor(testing$y), positive = '1')
+```

@@ -1,0 +1,125 @@
+---
+title: "ams580_quiz5"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-03-08"
+---
+**PART 1**
+_Question 1_
+```{r}
+#Install Packs
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("randomForest")) install.packages('randomForest')
+if (!requireNamespace("party")) install.packages('party')
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(party)
+```
+```{r}
+#Read/Clean Data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz5/GreatUnknown.csv')
+data <- na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+data$y <- as.factor(data$y)
+str(data)
+```
+```{r}
+#Split Data
+set.seed(123)
+training.samples <- data$y %>% 
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+```
+_Question 2_
+```{r}
+set.seed(123)
+model <- train(
+  y ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+model$bestTune
+model$finalModel
+```
+```{r}
+## Sensitivity
+1190/(1190+170)
+## Specificity
+1974/(1974+117)
+## Accuracy
+(1190+1974)/(1190+1974+117+170)
+```
+_Question 3_
+```{r}
+pred <- model %>% predict(test.data)
+confusionMatrix(factor(pred), factor(test.data$y))
+```
+```{r}
+## Sensitivity
+389/(389+49)
+## Specificity
+648/(648+64)
+## Accuracy
+(389+648)/(389+648+64+49)
+```
+_Question 4_
+```{r}
+# Plot MeanDecreaseAccuracy
+varImpPlot(model$finalModel, type = 1)
+# Plot MeanDecreaseGini
+varImpPlot(model$finalModel, type = 2)
+```
+_Question 5_
+```{r}
+varImp(model, type = 1)
+```
+**PART 2**
+_Question 1_
+```{r}
+#Read/Clean Data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz5/QuestionMark.csv')
+data <- na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+data$y <- as.factor(data$y)
+data$w4 <- ifelse(data$w4=="Y",1,0)
+str(data)
+```
+```{r}
+#Split Data
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.95, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+_Question 2_
+```{r}
+##set.seed(123)
+##model <- train(
+##  y ~., data = train.data, method = "rf",
+##  trControl = trainControl("cv", number = 10)
+##)
+##model$bestTune
+##model
+```
+_Question 3_
+```{r}
+##predictions <- model %>% predict(test.data)
+##head(predictions)
+
+##RMSE(predictions, test.data$y)
+```
+_Question 4_
+```{r}
+##set.seed(123)
+##rf <- randomForest(y ~ ., data=data, ntree=500, mtry=5,keep.forest=FALSE,importance=TRUE)
+##rf
+##sqrt(rf$mse[500])
+##importance(rf)
+##varImpPlot(rf) 
+```

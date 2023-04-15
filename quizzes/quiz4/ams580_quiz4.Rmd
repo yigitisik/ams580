@@ -1,0 +1,107 @@
+---
+title: "ams580_quiz4"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-03-01"
+---
+
+\#**Problem 1**
+
+```{r}
+#import libraries
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(caTools)
+#I did text-to-column in excel based on semicolons to make our data usable in R
+#Maybe there are methods to do the same in R as well but I didn't know for now
+#read data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz4/wine.csv')
+str(data)
+#set seed
+set.seed(123)
+#divide to 75%train and 25%test
+split <- sample.split(1:dim(data)[1], SplitRatio = 0.75)
+train.data <- data[split,]
+test.data <- data[!split,]
+str(train.data) # 1199 obs
+str(test.data) # 400 obs
+```
+
+\#**Problem 2**
+
+```{r}
+x <- model.matrix(quality~., train.data)[,-1]
+y <- train.data$quality
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+```
+
+Best lambda for ridge regression is `r cv$lambda.min`
+
+```{r}
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min)
+coef(model)
+```
+
+```{r}
+x.test <- model.matrix(quality ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$quality),
+  Rsquare = R2(predictions, test.data$quality)
+)
+```
+
+RMSE is 0.6518861 and coefficient of determination is 0.3638303
+
+\#**Problem 3**
+
+```{r}
+cv <- cv.glmnet(x, y, alpha = 1)
+cv$lambda.min
+```
+
+Best lambda for LASSO is `r cv$lambda.min`
+
+```{r}
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min)
+coef(model)
+```
+
+```{r}
+x.test <- model.matrix(quality ~., test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$quality),
+  Rsquare = R2(predictions, test.data$quality)
+)
+```
+
+RMSE is 0.6543806 and coefficient of determination is 0.3592586
+
+\#**Problem 4**
+
+```{r}
+model <- train(
+  quality ~., data = train.data, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+model$bestTune
+```
+
+```{r}
+coef(model$finalModel, model$bestTune$lambda)
+```
+
+```{r}
+x.test <- model.matrix(quality ~., test.data)[,-1]
+predictions <- model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, test.data$quality),
+  Rsquare = R2(predictions, test.data$quality)
+)
+```
+
+RMSE is 0.6541453 and coefficient of determination is 0.3593835

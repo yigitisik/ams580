@@ -1,0 +1,119 @@
+---
+title: "ams580_hw6"
+author: "Mustafa Yigit Isik"
+date: "2023-03-21"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+# Loading data and packages
+```{r}
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("neuralnet")) install.packages('neuralnet')
+if (!requireNamespace("keras")) install.packages('keras')
+if (!requireNamespace("e1071")) install.packages('e1071')
+
+library(tidyverse)
+library(caret)
+library(neuralnet)
+library(keras)
+library(e1071)
+```
+
+# Importing data
+```{r}
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/hw6_neural_netw/Titanic2.csv")
+data <- subset(data, select = -c(PassengerId,Name,Ticket,Cabin,Embarked)) 
+## I took out Embarked as well to read
+data <- subset(data, is.na(Age) == FALSE)
+data$Sex <- ifelse(data$Sex == "male", 1, 0)
+cat('There are', nrow(data), 'observations left.')
+str(data)
+```
+```{r}
+# Question 1
+set.seed(123) 
+split <- data$Survived %>% 
+createDataPartition(p = 0.75, list = FALSE)
+train.data <- data[split,]
+test.data <- data[-split,]
+```
+
+
+```{r}
+# Question 2 - Part 1
+set.seed(123) 
+model <- neuralnet(Survived~., data = train.data, hidden = 0, err.fct = "sse", linear.output = F)
+plot(model, rep = "best")
+```
+
+```{r}
+# Question 2 - Part 2
+probabilities <- model %>% predict(test.data) %>% as.vector()
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+```
+
+
+```{r}
+# Question 3 - Part 1
+set.seed(123)
+model <- neuralnet(Survived~., data = train.data, hidden = 0, err.fct = "ce", linear.output = F)
+plot(model, rep = "best")
+```
+
+```{r}
+# Question 3 - Part 2
+probabilities <- model %>% predict(test.data)
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+```
+
+```{r}
+# Question 4 - Part 1
+set.seed(123)
+model <- glm(Survived~., family = binomial, data = train.data)
+model
+```
+
+```{r}
+# Question 4 - Part 2
+probabilities <- model %>% predict(test.data, type = 'response')
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+```
+
+```{r}
+# Question 5 - Part 1
+set.seed(123)
+model <- neuralnet(Survived~., data = train.data, hidden = 3, err.fct = "sse", linear.output = F)
+plot(model, rep = "best")
+```
+
+```{r}
+# Question 5 - Part 2
+probabilities <- model %>% predict(test.data)
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+```
+
+```{r}
+# Question 6 - Part 1
+set.seed(123)
+model <- neuralnet(Survived~., data = train.data, hidden = 3, err.fct = "ce", linear.output = F)
+plot(model, rep = "best")
+```
+```{r}
+# Question 6 - Part 2
+probabilities <- model %>% predict(test.data)
+predicted.classes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+```
+```{r}
+#- Steps in q6 takes much more compared to q3 but the accuracy is ~.8427 compared
+#to q3 where accuracy is ~.82
+#- sensitivty in q6 is worse off but the specificity is the clear winner with .98
+#compared to .90 in q3
+```

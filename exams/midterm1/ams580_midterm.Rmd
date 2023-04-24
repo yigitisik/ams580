@@ -1,0 +1,213 @@
+---
+title: "ams580_midterm1"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-03-29"
+---
+
+```{r}
+#PART 1 - Question 1
+#Import Libraries
+library(caret)
+library(neuralnet)
+library(keras)
+library(tidyverse)
+library(dplyr)
+library(cloudml)
+library(randomForest)
+library(rpart)
+library(rattle)
+library(caTools)
+
+#Read data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/midterm/Puzzle.csv')
+#Categorize $15 column 
+data$x15_1 <- ifelse(data$x15 == 1, 1, 0)
+data$x15_2 <- ifelse(data$x15 == 2, 1, 0)
+data <- subset(data, select = -c(x15))
+#Remove missing values
+data <- na.omit(data)
+cat("There are", nrow(data)," values left\n")
+str(data)
+
+#Split data 80-20
+set.seed(123)
+training.samples <- data$y %>% 
+  createDataPartition(p=.8, list = FALSE)
+train.data <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data) #3681 obs
+str(test.data) #920 obs
+```
+
+```{r}
+#PART 1 - Question 2
+#Set seed
+set.seed(123)
+#Build model
+model2 <- neuralnet(y~., data = train.data, hidden=3, err.fct = "sse",act.fct = "logistic", linear.output = F)
+#Plot perceptron
+plot(model2, rep = "best")
+
+probabilities = predict(model2, test.data)
+pred2 = ifelse(probabilities > 0.5, 1, 0)
+#Confusion Matrix
+c2 = confusionMatrix(factor(pred2), factor(test.data$y), positive = "1")
+#Add predicted class label to testing data
+test.data.with_pred2 <- cbind(test.data, pred2)
+str(test.data.with_pred2)
+```
+
+```{r}
+#PART 1 - Question 3
+#build the best random forest to predict the class label using the training data
+train.data$y = as.factor(train.data$y)
+test.data$y = as.factor(test.data$y)
+
+set.seed(123)
+model3 = train(
+  y ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+
+model3$bestTune
+model3$finalModel
+
+pred3 = model3 %>% predict(test.data)
+#Add predicted class label to testing data
+test.data.with_pred3 <- cbind(test.data, pred3)
+str(test.data.with_pred3)
+#Confusion Matrix
+c3 = confusionMatrix(pred3, factor(test.data$y), positive = "1")
+#Plot the variables importance measures using MeanDecreaseAccuracy
+varImpPlot(model3$finalModel, type = 1)
+```
+
+```{r}
+#PART 1 - Question 4
+set.seed(123)
+
+model4 = train(
+  y ~., data = train.data, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100)
+
+plot(model4)
+model4$bestTune
+fancyRpartPlot(model4$finalModel)
+
+pred4 = predict(model4, newdata = test.data)
+#Add predicted class label to testing data
+test.data.with_pred4 <- cbind(test.data, pred4)
+str(test.data.with_pred4)
+#Confusion Matrix
+c4 = confusionMatrix(pred4, factor(test.data$y), positive = "1")
+```
+
+```{r}
+#PART 1 - Question 5
+#Majority Voting
+# pred = cbind(pred2, pred3, pred4)
+# pred.m = apply(pred,1,function(x) names(which.max(table(x))))
+# pred.m = as.numeric(pred.m)
+# confusionMatrix(factor(pred.m), factor(test.data$y), positive = '1')
+```
+
+```{r}
+#PART 2 - Question 1
+#Read data
+data_q2_raw <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/midterm/Maze.csv')
+#Convert $x16 to 0-1
+data_q2_raw$x16 = ifelse(data_q2_raw$x16 == 'y', 1, 0)
+#Take mean and sd for future reference
+mean = mean(data_q2_raw$y)
+sd = sd(data_q2_raw$y)
+#Normalize data
+data_q2_raw = data.frame(scale(data_q2_raw))
+#Take out empties
+data_q2_clean = na.omit(data_q2_raw)
+
+#Report how many observations with missing values
+cat('There are', nrow(data_q2_raw) - nrow(data_q2_clean), 'missing values.\n')
+
+#Split 80-20
+set.seed(123)
+training.samples_q2 <- data_q2_clean$y %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data_q2  <- data[training.samples_q2, ]
+test.data_q2 <- data[-training.samples_q2, ]
+str(train.data_q2)
+str(test.data_q2) 
+```
+
+```{r}
+#PART 2 - Question 2
+library(tensorflow)
+
+train_x = as.matrix(subset(train.data_q2, select = -y))
+train_y = as.matrix(subset(train.data_q2, select = y))
+test_x = as.matrix(subset(test.data_q2, select = -y))
+test_y = as.matrix(subset(test.data_q2, select = y))
+
+set_random_seed(123)
+model <- keras_model_sequential() 
+model %>% layer_dense(units = 3, input_shape = c(16)) %>% 
+  layer_dense(units = 1, activation = "linear")
+model %>% compile(loss='mse',optimizer='adam',metrics='mse')
+summary(model)
+
+preds <- predict(model, test_x)
+
+# scaled test RMSE
+RMSE(test.data$y, preds)
+# test RMSE
+RMSE(test.data$y*sd+mean, preds*sd+mean)
+```
+
+```{r}
+#PART 2 - Question 3
+detach(package:keras,unload=TRUE)
+detach(package:tensorflow,unload=TRUE)
+
+set.seed(123)
+
+# I kept getting this error so I commented out the parts to submit
+
+#Error in cut.default(y, breaks, include.lowest = TRUE) :
+#invalid number of intervals
+
+# model3_q2 <- train(
+#   y ~., data = train.data_q2, method = "rf",
+#   trControl = trainControl("cv", number = 10)
+# )
+# model3_q2$bestTune
+#
+# predictions_q2 <- model3_q2 %>% predict(test.data_q2)
+# #Add predicted class label to testing data
+# test.data_q2.3 <- cbind(test.data_q2, predictions_q2)
+# str(test.data_q2.3)
+# 
+# # scaled test RMSE
+# RMSE(test.data_q2$y, predictions_q2)
+# # test RMSE
+# RMSE(test.data_q2$y*sd+mean, predictions_q2*sd+mean)
+```
+
+```{r}
+#PART 2 - Question 4
+library(glmnet)
+# model_q2.4 <- train(
+#   y~., data = train.data_q2, method = "glmnet",
+#   trControl = trainControl("cv", number = 10),
+#   tuneLength = 10
+# )
+# model_q2.4$bestTune
+# 
+# coef(model$finalModel, model$bestTune$lambda)
+```
+
+```{r}
+#PART 2 - Question 5
+# Didn't have time left, sorry
+```

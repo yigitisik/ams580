@@ -1,0 +1,196 @@
+---
+title: "ams580_midterm2"
+author: Mustafa Yigit Isik
+output: word_document
+date: "2023-04-12"
+---
+```{r}
+#PART 1
+#**Question 1
+library(caret)
+library(neuralnet)
+library(keras)
+library(tidyverse)
+library(dplyr)
+library(cloudml)
+library(randomForest)
+library(rpart)
+library(rattle)
+library(glmnet)
+
+data <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/midterm2/Puzzle2.csv")
+table(data$x14)
+
+mean = mean(data$y)
+sd = sd(data$y)
+
+data$x14_1 = ifelse(data$x14 == 1, 1, 0)
+data$x14_2 = ifelse(data$x14 == 2, 1, 0)
+data = subset(data, select = -c(x14))
+data = na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+
+
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+
+
+```{r}
+#**Question 2
+train.data$y = as.factor(train.data$y)
+test.data$y = as.factor(test.data$y)
+
+
+#changed to 5
+set.seed(123)
+model2 = train(
+  y ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 5),
+  importance = TRUE
+  )
+# Best tuning parameter
+model2$bestTune
+model2$finalModel
+
+pred2 = model2 %>% predict(test.data)
+c2 = confusionMatrix(pred2, factor(test.data$y), positive = "1") # confusion matrix
+
+# Plot MeanDecreaseAccuracy
+varImpPlot(model2$finalModel, type = 1)
+```
+
+```{r}
+#**Question 3
+set.seed(123)
+model3 = neuralnet(y~., data = train.data, hidden = 3, err.fct = "sse",act.fct = "logistic", linear.output = F, stepmax = 1e7)
+plot(model3, rep = 'best')
+
+probabilities = predict(model3, test.data)
+pred3 = factor(ifelse(probabilities > 0.5, 1, 0))
+
+# (c3 = confusionMatrix(pred3, factor(test.data$y), positive = "1"))
+```
+
+```{r}
+#**Question 4
+set.seed(123)
+model4 <- train(
+  y ~., data = train.data, method = "svmPoly",
+  trControl = trainControl("cv", number = 4),
+  tuneLength = 4,
+  preProcess = c("center","scale")
+  )
+model4$bestTune
+
+# predicted.classes <- model4 %>% predict(test.data)
+probabilities = predict(model4, test.data)
+pred4 = factor(ifelse(probabilities > 0.5, 1, 0))
+
+pred4 = predict(model4, newdata = test.data)
+# (c4 = confusionMatrix(pred4, factor(test.data$y), positive = "1"))
+```
+
+```{r}
+#**Question 5
+# pred = cbind(pred2, pred3, pred4)
+# pred.m = apply(pred,1,function(x) names(which.max(table(x)))) # Majority vote
+# pred.m = factor(pred.m, levels = c('1','2'), labels = c('0','1'))
+# 
+# confusionMatrix(pred.m, factor(test.data$y), positive = '1')
+```
+
+
+```{r}
+#PART 2
+#**Question 6
+data1 <- read.csv("/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/midterm2/Maze2.csv")
+
+data1$x15 = ifelse(data1$x15 == 'y', 1, 0)
+mean = mean(data1$y)
+sd = sd(data1$y)
+
+data1 = data.frame(scale(data1))
+data = na.omit(data1)
+
+cat('There are', nrow(data1) - nrow(data), 'missing values.')
+
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+
+```{r}
+#**Question 7
+model7 = neuralnet(y~., data = train.data, hidden = 3, err.fct = "sse", linear.output = T, stepmax = 1e7)
+plot(model2, rep = 'best')
+pred7 = predict(model7, test.data)
+
+# scaled test RMSE
+RMSE(test.data$y, pred7)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred7*sd+mean)
+```
+```{r}
+#**Question 8
+set.seed(123)
+model8 <- train(
+  y ~., data = train.data, method = "rf",
+trControl = trainControl("cv", number = 10)
+)
+model8$bestTune
+pred8 <- model8 %>% predict(test.data)
+
+# scaled test RMSE
+RMSE(test.data$y, pred8)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred8*sd+mean)
+```
+
+```{r}
+#**Question 9
+x <- model.matrix(y~., train.data)[,-1] 
+
+y <- train.data$y
+cv<- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min) # alpha=0: ridge
+coef(model)
+
+x.test <- model.matrix(y ~., test.data)[,-1]
+pred9 <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(pred9, test.data$y),
+  Rsquare = R2(pred9, test.data$y)
+)
+
+plot(y = pred9,x = test.data$y, xlab='Observed response',ylab='Estimated response')
+abline(1,1)
+```
+
+```{r}
+#**Question 10
+# Question 7 causes too much time out, had to cut it out to run.
+pred10 = cbind(pred8, pred9)
+pred.m = rowMeans(pred10)
+
+# scaled test RMSE
+RMSE(test.data$y, pred.m)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred.m*sd+mean)
+```
+
+```{r}
+#**Question 11
+#Extra credit attempt submitted pdf together
+```

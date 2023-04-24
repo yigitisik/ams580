@@ -1,0 +1,189 @@
+---
+title: "Midterm_solutions"
+author: "Weihao Wang"
+output: pdf_document
+---
+
+Part I. Classification Tasks
+
+Q1.
+
+```{r}
+library(caret)
+library(neuralnet)
+library(keras)
+library(tidyverse)
+library(dplyr)
+library(cloudml)
+library(randomForest)
+library(rpart)
+library(rattle)
+
+data <- read.csv("Puzzle2.csv")
+table(data$x14)
+
+data$x14_1 = ifelse(data$x14 == 1, 1, 0)
+data$x14_2 = ifelse(data$x14 == 2, 1, 0)
+data = subset(data, select = -c(x14))
+data = na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+
+Q2.
+
+```{r}
+train.data$y = as.factor(train.data$y)
+test.data$y = as.factor(test.data$y)
+
+set.seed(123)
+model3 = train(
+  y ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+# Best tuning parameter
+model3$bestTune
+model3$finalModel
+
+pred1 = model3 %>% predict(test.data)
+(c3 = confusionMatrix(pred1, test.data$y, positive = "1")) # confusion matrix
+
+# Plot MeanDecreaseAccuracy
+varImpPlot(model3$finalModel, type = 1)
+```
+
+Q3.
+
+```{r}
+model2 = neuralnet(y~x8+x1+x12+x5+x14_2+x14_1+x9+x6+x10+x11, data = train.data, hidden = 3, err.fct = "sse",act.fct = "logistic", linear.output = F, stepmax = 1e7)
+plot(model2, rep = "best") # plot the model
+
+probabilities = predict(model2, test.data)
+pred2 = factor(ifelse(probabilities[,2] > 0.5, 1, 0))
+
+(c2 = confusionMatrix(pred2, test.data$y, positive = "1")) # confusion matrix
+```
+
+Q4.
+
+```{r}
+set.seed(123)
+model4 = train(
+  y ~., data = train.data, method = "svmRadial",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 4)
+model4$bestTune
+
+pred3 = predict(model4, newdata = test.data)
+(c4 = confusionMatrix(pred3, test.data$y, positive = "1")) # confusion matrix
+```
+
+Q5.
+
+```{r}
+pred = cbind(pred1, pred2, pred3)
+pred.m = apply(pred,1,function(x) names(which.max(table(x)))) # Majority vote
+pred.m = factor(pred.m, levels = c('1','2'), labels = c('0','1'))
+
+confusionMatrix(pred.m, test.data$y, positive = '1')
+```
+The random forest classifier from Question 2 is a little bit better than this ensemble classifier.
+
+
+
+Part II. Regression Analyses & Variable Selections
+
+Q6.
+
+```{r}
+data1 = read.csv("Maze2.csv")
+data1$x15 = ifelse(data1$x15 == 'y', 1, 0)
+mean = mean(data1$y)
+sd = sd(data1$y)
+data1 = data.frame(scale(data1))
+data = na.omit(data1)
+
+cat('There are', nrow(data1) - nrow(data), 'missing values.')
+
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+
+Q7.
+
+```{r}
+set.seed(12)
+model2 = neuralnet(y~., data = train.data, hidden = 3, err.fct = "sse", linear.output = T, stepmax = 1e7)
+plot(model2, rep = 'best')
+pred1 = predict(model2, test.data)
+
+# scaled test RMSE
+RMSE(test.data$y, pred1)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred1*sd+mean)
+```
+
+Q8.
+
+```{r}
+set.seed(123)
+model3 <- train(
+  y ~., data = train.data, method = "rf",
+trControl = trainControl("cv", number = 10)
+)
+model3$bestTune
+pred2 <- model3 %>% predict(test.data)
+
+# scaled test RMSE
+RMSE(test.data$y, pred2)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred2*sd+mean)
+```
+
+Q9.
+
+```{r}
+model4 <- train(
+  y ~., data = train.data, method = "glmnet",
+  tuneGrid = expand.grid(alpha = 0, lambda = seq(0.1, 1, by = 0.05))
+)
+# the best tuning parameter
+model4$bestTune
+# coefficients of the fitted model
+coef(model4$finalModel, model4$bestTune$lambda)
+
+pred3 <- predict(model4, test.data)
+(Rsquare = R2(pred3, test.data$y))
+
+# scaled test RMSE
+RMSE(test.data$y, pred3)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred3*sd+mean)
+```
+
+Q10.
+
+```{r}
+pred = cbind(pred1, pred2, pred3)
+pred.m = rowMeans(pred)
+
+# scaled test RMSE
+RMSE(test.data$y, pred.m)
+# test RMSE
+RMSE(test.data$y*sd+mean, pred.m*sd+mean)
+```
+
+The random forest classifier from Question 8 is a little bit better than this ensemble classifier.

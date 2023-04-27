@@ -1,0 +1,132 @@
+---
+title: "ams580_quiz6"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-03-22"
+---
+
+
+```{r}
+#QUESTION 1
+
+#Load packages
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("neuralnet")) install.packages('neuralnet')
+if (!requireNamespace("keras")) install.packages('keras')
+if (!requireNamespace("e1071")) install.packages('e1071')
+
+library(tidyverse)
+library(caret)
+library(neuralnet)
+library(keras)
+library(e1071)
+
+#Import data
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz6/GreatUnknown.csv')
+data <- na.omit(data)
+cat("There are ", nrow(data), " observations left after this step" )
+str(data)
+
+set.seed(123)
+split <- data$y %>% createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[split, ]
+test.data <- data[-split, ]
+str(train.data) # 3451 obs
+str(test.data) # 1150 obs
+```
+
+```{r}
+#QUESTION 2 - Part 1
+set.seed(123)
+model <- neuralnet(y~., data=train.data, hidden=0, err.fct="sse", linear.output=F)
+plot(model, rep = "best")
+```
+
+```{r}
+#QUESTION 2 - Part 2
+probs = predict(model, test.data)
+predicted.classes = ifelse(probs > .5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$y), positive = "1")
+```
+
+```{r}
+#QUESTION 3 - Part 1
+set.seed(123)
+model <- neuralnet(y~., data=train.data, hidden=0, err.fct="ce", linear.output=F)
+plot(model, rep = "best")
+```
+
+```{r}
+#QUESTION 3 - Part 2
+probs = predict(model, test.data)
+predicted.classes = ifelse(probs > .5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$y), positive = "1")
+```
+
+```{r}
+#QUESTION 4 - Part 1
+set.seed(123)
+model = glm(y~., family = binomial, data = train.data)
+model
+```
+
+```{r}
+#QUESTION 4 - Part 2
+probabilities = model %>% predict(test.data, type = "response")
+predicted.classes = ifelse(probs > .5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$y), positive = "1")
+```
+
+```{r}
+#QUESTION 5 - Part 1
+set.seed(123)
+model <- neuralnet(y~., data=train.data, hidden=3, err.fct="sse", linear.output=F)
+plot(model, rep = "best")
+```
+
+```{r}
+#QUESTION 5 - Part 2
+probs = predict(model, test.data)
+predicted.classes = ifelse(probs > .5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$y), positive = "1")
+```
+
+```{r}
+#QUESTION 6 - Part 1
+set.seed(123)
+model <- neuralnet(y~., data=train.data, hidden=3, err.fct="ce", linear.output=F)
+plot(model, rep = "best")
+```
+
+```{r}
+#QUESTION 6 - Part 2
+probs = predict(model, test.data)
+predicted.classes = ifelse(probs > .5, 1, 0)
+confusionMatrix(factor(predicted.classes), factor(test.data$y), positive = "1")
+```
+
+```{r}
+#QUESTION 7
+#It seems that the accuracy is quite close in part 5 and 6, (0.907 and 0.9043), respectively.
+#However, since the choice has to be made, due to slight advantage, has to be part 5,
+#which is sse with 3 hidden layers
+
+set.seed(123)
+model <- neuralnet(y~., data=train.data, hidden=3, err.fct="sse", linear.output=F)
+probs = predict(model, test.data)
+
+#I couldn't figure out column concat while in the quiz so I did write 2 csv files and then
+#got them together in excel, probably have a more elegant way to do but this also looks 
+#foul-proof for quick quiz solution
+
+write.csv(probs, "/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz6/sse_test_output.csv", row.names=FALSE)
+write.csv(test.data, "/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz6/regular_testdata.csv", row.names=FALSE)
+
+#I output the concat results under "test.data_concatwith_sse.pred.csv" and attached 
+#with rmd, docx files
+
+```
+
+
+```

@@ -1,0 +1,123 @@
+---
+title: "ams580_quiz8"
+output: word_document
+author: Mustafa Yigit Isik
+date: "2023-04-05"
+---
+# Load packages
+```{r}
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+
+library(tidyverse)
+library(caret)
+```
+
+```{r}
+#Question 1
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/quizzes/quiz8/banknote.csv')
+data <- na.omit(data)
+cat('There are', nrow(data), 'observations left.')
+data$class <- as.factor(data$class)
+
+set.seed(123)
+training.samples <- data$class %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data) #1030 obs
+str(test.data) #342 obs
+```
+
+```{r}
+#Question 2
+set.seed(123)
+model <- train(
+  class ~., data = train.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  )
+# Make predictions on the test data
+predicted.classes <- model %>% predict(test.data)
+# Conf matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$class), positive = '1')
+```
+
+```{r}
+#Question 3
+set.seed(123)
+model <- train(
+  class ~., data = train.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  tuneGrid = expand.grid(C = seq(0.1, 2, length = 19))
+  )
+
+plot(model)
+# Print the best tuning parameter sigma and C that
+# maximizes model accuracy
+model$bestTune
+# Make predictions on the test data
+predicted.linear <- model %>% predict(test.data)
+head(predicted.linear)
+# Confusion matrix
+confusionMatrix(factor(predicted.linear), factor(test.data$class), positive = '1')
+#Add pred class label to testing data
+test.data_pred1 = cbind(test.data, predicted.linear)
+```
+
+```{r}
+#Question 4
+set.seed(123)
+model <- train(
+  class ~., data = train.data, method = "svmRadial",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+  )
+# Print the best tuning parameter sigma and C that
+# maximizes model accuracy
+model$bestTune
+# Make predictions on the test data
+predicted.radial <- model %>% predict(test.data)
+head(predicted.radial)
+# Conf matrix
+confusionMatrix(factor(predicted.radial), factor(test.data$class), positive = '1')
+#Add pred class label to testing data
+test.data_pred2 = cbind(test.data, predicted.radial)
+```
+
+```{r}
+#Question 5
+set.seed(123)
+model <- train(
+  class ~., data = train.data, method = "svmPoly",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 4
+  )
+# Print the best tuning parameter sigma and C that
+# maximizes model accuracy
+model$bestTune
+# Make predictions on the test data
+predicted.poly <- model %>% predict(test.data)
+head(predicted.poly)
+# Conf. matrix
+confusionMatrix(factor(predicted.poly), factor(test.data$class), positive = '1')
+#Add pred class label to testing data
+test.data_pred3 = cbind(test.data, predicted.poly)
+```
+
+```{r}
+#Question 6
+#Out of linear, radial, and polynomial; accuracy results were:
+#linear: 0.9795 
+#radial: 1
+#polynomial: 1
+#With these values being pretty close, it's hard to give a clear best case but
+#radial and poly takes the top ever so slightly.
+```
+
+```{r}
+#Question 7
+pred = cbind(test.data_pred1, test.data_pred2, test.data_pred3)
+pred.m = apply(pred,1,function(x) names(which.max(table(x)))) # Majority vote
+pred.m = as.numeric(pred.m)
+confusionMatrix(factor(pred.m), factor(test.data$class), positive = '1')
+```

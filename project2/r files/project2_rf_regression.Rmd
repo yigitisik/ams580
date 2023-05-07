@@ -1,0 +1,66 @@
+---
+title: "project2_rf_regression"
+author: "EMVP"
+date: "2023-05-02"
+output: word_document
+---
+```{r}
+#Q1
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+data("Boston", package = "MASS")
+
+nrow(Boston)
+```
+
+```{r}
+#Q2
+set.seed(123)
+training.samples <- Boston$medv %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data  <- Boston[training.samples, ]
+test.data <- Boston[-training.samples, ]
+str(train.data)
+str(test.data)
+```
+
+```{r}
+#Q3
+set.seed(123)
+model <- train(
+  medv ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 10)
+)
+# Best tuning parameter mtry
+model$bestTune
+model
+```
+
+```{r}
+#Q4
+predictions <- model %>% predict(test.data)
+head(predictions)
+
+# Compute the average prediction error RMSE
+RMSE(predictions, test.data$medv)
+```
+
+
+```{r}
+#Q5
+set.seed(123)
+rf <- randomForest(medv ~ ., data=Boston, ntree=500, mtry=7,keep.forest=FALSE,importance=TRUE)
+rf
+sqrt(rf$mse[500])
+importance(rf)
+#varImp(rf, type = 2)
+varImpPlot(rf) 
+```
+
+```{r}
+#Q6
+12/3
+# 4 variables to select
+```

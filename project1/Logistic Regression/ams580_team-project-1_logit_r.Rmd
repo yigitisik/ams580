@@ -1,0 +1,161 @@
+---
+title: "AMS580 - Team Project 1 - R"
+author:
+- Eshan Shakrani - 112802596
+- Vishnu Teja Sardee
+- Priyansh Desai
+- Mustafa Isik
+date: "3/2/2023"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+## Loading Necessary Libraries
+
+```{r}
+# necessary libraries
+if (!requireNamespace("tidyverse")) install.packages("tidyverse")
+if (!requireNamespace("MASS")) install.packages("MASS")
+if (!requireNamespace("magrittr")) install.packages("magrittr")
+if (!requireNamespace("caret")) install.packages("caret")
+if (!requireNamespace("mlbench")) install.packages("mlbench")
+
+library("tidyverse")
+library("MASS")
+library("magrittr")
+library("caret")
+library("mlbench")
+```
+
+## Data Cleaning and Manipulation
+
+```{r}
+# load the PimaIndiansDiabetes2 dataset and store in variable 'dataset'
+data(PimaIndiansDiabetes2)
+dataset <- PimaIndiansDiabetes2
+
+# send the data to a csv file to use in Python
+if (!file.exists("pimaindiansdiabetes2.csv"))
+  write.csv(dataset, file = "pimaindiansdiabetes2.csv")
+```
+
+```{r}
+# look at the first few observations in the data
+head(dataset)
+```
+
+
+```{r}
+# convert response variable to numeric
+# 'neg' --> 0
+# 'pos' --> 1
+dataset$diabetes <- as.numeric(dataset$diabetes) - 1
+```
+
+
+```{r}
+# rows and columns in the data
+dim(dataset)
+# 768 rows, 9 columns
+
+cat("There are", dim(dataset)[1], "observations and", dim(dataset)[2], "features in the dataset.")
+```
+
+
+```{r}
+# count the number of missing values in the data
+cat("There are a total of", sum(is.na(dataset)), "missing values in the dataset.")
+
+# separate by column
+colSums(is.na(dataset))
+```
+
+```{r}
+# remove observations with missing values
+dataset <- na.omit(dataset)
+```
+
+```{r}
+# shape of the data after removing NA values
+dim(dataset)
+# 392 rows, 9 columns
+
+cat("After removing NA values, there are", dim(dataset)[1], "observations left over.")
+```
+```{r}
+head(dataset)
+```
+
+## Logistic Regression
+
+```{r}
+# split the data into 80% training and 20% testing
+set.seed(123)
+training.samples <- dataset$diabetes %>%
+  createDataPartition(p = 0.8, list = FALSE)
+train.data <- dataset[training.samples, ]
+test.data <- dataset[-training.samples, ]
+```
+
+```{r}
+# fit the logistic regression model using the training data
+model <- glm(diabetes ~ ., data = train.data, family = binomial)
+```
+
+```{r}
+summary(model)
+```
+
+```{r}
+# use the fitted model to make predictions on the testing data
+probs <- model %>% predict(test.data, type = "response")
+predicted.classes <- ifelse(probs > 0.5, 1, 0)
+```
+
+## Results
+
+```{r}
+# confusion matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$diabetes), positive = '1')
+```
+
+```{r}
+# accuracy
+accuracy <- mean(predicted.classes == test.data$diabetes)
+
+cat("The accuracy of the model is", accuracy)
+```
+```{r}
+cm <- table(predicted.classes, test.data$diabetes)
+cm
+```
+
+```{r}
+# true negative - does not have diabetes and was predicted to not have diabetes
+tn <- cm[1,1]
+
+# true positive - has diabetes and was predicted to have diabetes
+tp <- cm[2,2]
+
+# false negative - has diabetes but was predicted to not have diabetes
+fn <- cm[1,2]
+
+# false positive - does not have diabetes but was predicted to have diabetes
+fp <- cm[2,1]
+```
+
+```{r}
+# sensitivity
+sens <- tp / (tp + fn)
+
+cat("The probability that a diabetic subject is predicted to have diabetes is", sens)
+```
+
+```{r}
+# specificity
+spec <- tn / (tn + fp)
+
+cat("The probability that a non-diabetic subject is predicted to not have diabetes is", spec)
+```
+

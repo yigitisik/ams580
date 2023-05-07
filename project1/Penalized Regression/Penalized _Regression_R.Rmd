@@ -1,0 +1,127 @@
+---
+title: "Penalized Regression in R"
+author: "Priyansh Desai"
+date: "2023-03-21"
+output: html_document
+---
+
+Loading necessary libraries
+
+```{r}
+library(caret)
+library(tidyverse)
+library(glmnet)
+library(caTools)
+```
+
+Loading the Dataset and splitting into training and testing set 
+
+```{r}
+questionMark.data <- read.csv('QuestionMark.csv')
+cat('There are', sum(is.na(questionMark.data)))
+data <- na.omit(questionMark.data)
+cat("There are", nrow(data), " left in the dataset.")
+```
+
+```{r}
+set.seed(123)
+training.samples <- data$y %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+dim(train.data)  # 1097 observations 
+dim(test.data)  # 363 observations  
+```
+
+RIDGE REGRESSION
+
+```{r}
+x <- model.matrix(y~. , train.data)[,-1]
+y <- train.data$y
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+```
+
+The best lambda for Ridge Regression is 129.0571. 
+
+```{r}
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min)
+coef(model)
+```
+
+Making prediction for checking RMSE and Coefficient of Determination Rsquare.
+
+```{r}
+x.test <- model.matrix(y~. , test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$y),
+  Rsquare = R2(predictions, test.data$y)
+)
+```
+RMSE for Ridge Regression is 9009.3678 and the Coefficient of Determination is 0.6729274.
+
+```{r}
+plot(y = predictions, x = test.data$y, xlab = 'Observed data', ylab = 'Estimated data')
+abline(1,1)
+```
+
+LASSO REGRESSION
+
+```{r}
+cv <- cv.glmnet(x, y, alpha = 0.1)
+cv$lambda.min
+```
+
+The best lambda for LASSO is 10.96667
+
+```{r}
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min)
+coef(model)
+```
+```{r}
+x.test <- model.matrix(y~. , test.data)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+data.frame(
+  RMSE = RMSE(predictions, test.data$y),
+  Rsquare = R2(predictions, test.data$y)
+)
+```
+The RMSE for LASSO is 958.4058 and the Coefficient of Determination is 0.6571835.
+
+```{r}
+plot(y = predictions, x = test.data$y, xlab = 'Observed data', ylab = 'Estimated data')
+abline(1,1)
+```
+
+ELASTIC NET MODEL
+
+```{r}
+model <- train(y~. , data = train.data, method = "glmnet", trControl = trainControl("cv", number = 10),
+               tuneLength = 10)
+model$bestTune
+```
+
+Alpha = 1 and lambda = 7.351186.
+
+```{r}
+coef(model$finalModel, model$bestTune$lambda)
+```
+
+```{r}
+model <- glmnet(x, y, alpha = 1, lambda = 7.351186)
+x.test <- model.matrix(y~. , test.data)[,-1]
+predictions <- model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, test.data$y),
+  Rsquare = R2(predictions, test.data$y)
+)
+```
+
+The RMSE = 964.2876 and the Coefficient of Determination = 0.6560664.
+
+```{r}
+plot(y = predictions, x = test.data$y, xlab = "Observed data", ylab = "Estimated Data")
+abline(1,1)
+```
+

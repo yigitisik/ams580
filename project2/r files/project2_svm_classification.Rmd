@@ -1,0 +1,116 @@
+---
+title: "project2_svm_classification"
+author: "EMVP"
+date: "2023-05-02"
+output: word_document
+---
+```{r}
+#Q1
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+library(tidyverse)
+library(caret)
+
+data <- read.csv('Titanic.csv')
+data <- subset(data, select = -c(PassengerId,Name,Ticket,Cabin))
+data <- subset(data, is.na(Age) == FALSE)
+data$Survived <- as.factor(data$Survived)
+
+data$Pclass = as.factor(data$Pclass)
+
+data$Age = scale(data$Age)
+data$Fare = scale(data$Fare)
+
+dim(data)[1] # 714 passengers
+
+set.seed(123)
+training.samples <- data$Survived %>%
+  createDataPartition(p = 0.75, list = FALSE)
+train.data  <- data[training.samples, ]
+test.data <- data[-training.samples, ]
+str(train.data) # 536 obs
+str(test.data) # 178 obs
+```
+
+```{r}
+#Q2
+set.seed(123)
+model <- train(
+  Survived ~., data = train.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  )
+
+predicted.classes <- model %>% predict(test.data)
+head(predicted.classes)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+
+# Accuracy 0.7978
+test.data_pred = cbind(test.data, predicted.classes)
+str(test.data_pred)
+```
+
+```{r}
+#Q3
+set.seed(123)
+model <- train(
+  Survived ~., data = train.data, method = "svmLinear",
+  trControl = trainControl("cv", number = 10),
+  tuneGrid = expand.grid(C = seq(0.1, 2, length = 19))
+  )
+
+# Plot model accuracy vs different values of Cost
+plot(model)
+
+model$bestTune
+predicted.classes <- model %>% predict(test.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+# Accuracy 0.7978
+```
+
+```{r}
+#Q4
+set.seed(123)
+model <- train(
+  Survived ~., data = train.data, method = "svmRadial",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+  )
+
+model$bestTune
+predicted.classes <- model %>% predict(test.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+# Accuracy 0.8146
+```
+
+```{r}
+#Q5
+set.seed(123)
+model <- train(
+  Survived ~., data = train.data, method = "svmPoly",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 4
+  )
+
+model$bestTune
+predicted.classes <- model %>% predict(test.data)
+
+# Confusion matrix
+confusionMatrix(factor(predicted.classes), factor(test.data$Survived), positive = '1')
+# Accuracy 0.809
+```
+
+
+```{r}
+# Q6
+# Overall accuracy rate:
+# Linear: 0.7978
+# Radial basis kernel: 0.8146 (the best)
+# Polynomial kernel: 0.809
+```
+

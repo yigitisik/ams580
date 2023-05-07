@@ -1,0 +1,74 @@
+---
+title: "project2_rf_classification"
+author: "EMVP"
+date: "2023-05-02"
+output: word_document
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+library(randomForest)
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/project2/Titanic.csv')
+data <- subset(data, select = -c(PassengerId,Name,Ticket,Cabin))
+# Remember we have added "PassengerId" into the removal list
+data <- subset(data, is.na(Age) == FALSE)
+data$Survived <- as.factor(data$Survived)
+str(data)
+dim(data)[1] # 714 passengers
+
+set.seed(123)
+split <- data$Survived %>% 
+createDataPartition(p = 0.75, list = FALSE)
+train <- data[split,]
+test <- data[-split,]
+str(train) #536
+str(test) #178
+```
+
+```{r}
+#Q2
+set.seed(123)
+model <- train(
+  Survived ~., data = train, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+# Best tuning parameter
+model$bestTune
+model$finalModel
+```
+
+```{r}
+#Q3
+#Sensitivity
+138/(80+138)
+
+#Specificity
+284/(284+34)
+
+#Accuracy
+(138+284)/(138+284+80+34)
+
+#Confusion matrix
+pred <- model %>% predict(test)
+confusionMatrix(factor(pred), factor(test$Survived))
+```
+
+```{r}
+#Q4
+# Plot MeanDecreaseAccuracy
+varImpPlot(model$finalModel, type = 1)
+# Plot MeanDecreaseGini
+varImpPlot(model$finalModel, type = 2)
+```
+
+```{r}
+#Q5
+varImp(model)
+```
+
+```{r}
+# Q6
+sqrt(36)
+```

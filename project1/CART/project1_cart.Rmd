@@ -1,0 +1,104 @@
+---
+title: "ams580_proj1_cart"
+output: word_document
+author: EMVP
+date: "2023-03-13"
+---
+```{r}
+#1.For the entire dataset, please perform the data cleaning as instructed before; namely, exclude the variables Name, Ticket, and Cabin and delete missing values in the variable Age. Please report how many passengers are left after this step. Then please use the random seed 123 to divide the cleaned data into 80% training and 20% testing.
+
+#~Install Packages
+if (!requireNamespace("caTools")) install.packages('caTools')
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("rpart")) install.packages('rpart')
+if (!requireNamespace("rattle")) install.packages('rattle')
+library(caTools)
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rattle)
+
+#~Read File
+data <- read.csv("~/Desktop/stuff/semesters/spring 2023/ams 580/examples/Titanic.csv")
+
+#~Remove rows with empty cells for age 
+data <- subset(data, is.na(Age) == FALSE)
+
+#~Remove `Name`, `Ticket`, and `Cabin` columns
+data <- subset(data, select = -c(Name,Ticket,Cabin))
+
+#~Make the Sex column binary
+data$Sex <- ifelse(data$Sex=="male",1,0)
+
+#~Present cleaned data
+cat('There are', nrow(data), 'rows left.')
+data$Survived <- as.factor(data$Survived)
+str(data)
+
+#~Split data into test/train
+set.seed(123)
+training.samples <- data$Survived %>%
+  createDataPartition(p = 0.8, list = FALSE)
+training <- data[training.samples, ]
+testing <- data[-training.samples, ]
+```
+
+```{r}
+#2.Please first build a fully grown tree using the training data, and draw the tree plot using rattle. Next please use this tree to predict the survival of passengers in the testing data. Please compute the Confusion matrix and report the sensitivity, specificity and the overall accuracy for the testing data.
+
+#~Build/draw full tree
+model <- rpart(Survived ~., data = training, control = rpart.control(cp=0))
+par(xpd = NA)
+fancyRpartPlot(model, sub = "Full Tree \n EMVP")
+```
+
+```{r}
+#~Predicting in testing, conf matrix
+pred1 <- predict(model,newdata = testing, type ='class')
+pred1 <- ifelse(pred1 == 1, 1, 0)
+confusionMatrix(factor(pred1), factor(testing$Survived), positive = '1')
+```
+
+```{r}
+#3.To make the tree more robust, we will prune the fully grown tree using the training data with 10-fold cross-validation. Please (1) show the complexity plot, (2) report the best CP value, and (3) draw the pruned tree using rattle. 
+
+#(1) show the complexity plot
+set.seed(123)
+model2 <- train(
+  Survived ~., data = training, method = "rpart",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 100)
+plot(model2)
+#(2) report the best CP value
+model2$bestTune
+```
+
+```{r}
+#(3) draw the pruned tree using rattle
+fancyRpartPlot(model2$finalModel, sub = "Pruned Tree Using Rattle \n EMVP")
+```
+
+```{r}
+#4.Please use this optimal pruned tree to predict the survival of passengers in the testing data. Please compute the Confusion matrix and report the sensitivity, specificity and the overall accuracy for the testing data.
+
+pred2 <- predict(model2, newdata = testing)
+pred2 <- ifelse(pred2 == 1, 1, 0)
+confusionMatrix(factor(pred2), factor(testing$Survived), positive = '1')
+```
+
+```{r}
+#5.Please output the test data along with the prediction results from both the Full Tree, as well as the Optimal Pruned Tree. Please generate a 2x2 table to show the agreement between these two prediction methods. 
+
+#~Test Data and Pred Results
+str(testing)
+confusionMatrix(factor(pred1), factor(testing$Survived), positive = '1')
+confusionMatrix(factor(pred2), factor(testing$Survived), positive = '1')
+#~2x2 table
+m1 <- c(71, 11, 13, 47)
+m2 <- c(79, 22, 5, 36)
+pred1Matrix <- matrix(m1, nrow=2)
+pred2Matrix <- matrix(m2, nrow=2)
+pred1Matrix
+pred2Matrix
+```

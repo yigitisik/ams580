@@ -1,0 +1,89 @@
+---
+title: "project1_regularization"
+output: word_document
+author: EMVP
+date: "2023-03-14"
+---
+```{r}
+#1. Please use the random seed 123 to divide the data into 75% training and 25% testing.  
+
+#~Install Packages
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("glmnet")) install.packages('glmnet')
+if (!requireNamespace("caTools")) install.packages('caTools')
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(caTools)
+
+#~Read File
+data("Boston", package = "MASS")
+str(Boston) # the response variable is 'medv' and the other 13 are used to fit the model
+#~Set seed and split data
+set.seed(123)
+training.samples <- Boston$medv %>% createDataPartition(p = 0.75, list = FALSE)
+training  <- Boston[training.samples, ]
+testing <- Boston[-training.samples, ]
+```
+
+```{r}  
+#2. Please first find the best Ridge Regression model using the training data. Please (a) find the best λ value through cross-validation and display this value; (b) display the coefficients of the fitted model; and (c) make prediction on the testing data, and report the RMSE and the Coefficient of Determination R^2. 
+x <- model.matrix(medv~., training)[,-1]
+y <- training$medv
+cv <- cv.glmnet(x, y, alpha = 0)
+cv$lambda.min
+#0.6490823 is the best lambda for ridge
+
+model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min) #alpha=0 for ridge
+coef(model)
+
+x.test <- model.matrix(medv ~., testing)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+
+data.frame(
+  RMSE = RMSE(predictions, testing$medv),
+  Rsquare = R2(predictions, testing$medv)
+)
+#6.635525 for RMSE and 0.6626213 for Rsquare (coef of determination)
+```
+```{r}
+#3 Please first find the best LASSO model using the training data. Please (a) find the best λ value through cross-validation and display this value; (b) display the coefficients of the fitted model; and (c) make prediction on the testing data, and report the RMSE and the Coefficient of Determination R^2. 
+
+cv <- cv.glmnet(x, y, alpha = 1)
+cv$lambda.min
+#0.02943509 is the best lambda for LASSO
+
+model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min) # alpha=1: lasso
+coef(model)
+
+x.test <- model.matrix(medv ~., testing)[,-1]
+predictions <- model %>% predict(x.test) %>% as.vector()
+
+data.frame(
+  RMSE = RMSE(predictions, testing$medv),
+  Rsquare = R2(predictions, testing$medv)
+)
+#6.472275 for RMSE and 0.6749717 for Rsquare (coef of determination)
+```
+
+```{r}
+#4. Please first find the best Elastic Net model using the training data. Please (a) find the best tuning parameters values through cross-validation and display these values; (b) display the coefficients of the fitted model; and (c) make prediction on the testing data, and report the RMSE and the Coefficient of Determination R^2. 
+
+model <- train(
+  medv ~., data = training, method = "glmnet",
+  trControl = trainControl("cv", number = 10),
+  tuneLength = 10
+)
+
+model$bestTune
+coef(model$finalModel, model$bestTune$lambda)
+
+x.test <- model.matrix(medv ~., testing)[,-1]
+predictions <- model %>% predict(x.test)
+data.frame(
+  RMSE = RMSE(predictions, testing$medv),
+  Rsquare = R2(predictions, testing$medv)
+)
+#6.433159	for RMSE and 0.6781032 for Rsquare (coef of determination)
+```

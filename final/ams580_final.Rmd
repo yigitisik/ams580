@@ -1,0 +1,399 @@
+---
+title: "ams580_final"
+author: "Mustafa Yigit Isik"
+date: "2023-05-17"
+output: word_document
+---
+# Part 1
+```{r}
+## Loading data and packages
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("neuralnet")) install.packages('neuralnet')
+if (!requireNamespace("keras")) install.packages('keras')
+if (!requireNamespace("randomForest")) install.packages('randomForest')
+if (!requireNamespace("rpart")) install.packages('rpart')
+if (!requireNamespace("rattle")) install.packages('rattle')
+library(tidyverse)
+library(caret)
+library(neuralnet)
+library(keras)
+library(randomForest)
+library(rpart)
+library(rattle)
+
+## Question 1
+diabetes_data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/final/diabetes_prediction_dataset_updated.csv')
+diabetes_data <- na.omit(diabetes_data)
+diabetes_data = subset(diabetes_data, select = -c(smoking_history))
+diabetes_data$gender <- ifelse(diabetes_data$gender == "Male", 1, 0)
+dim(diabetes_data)[1]
+```
+
+```{r}
+set.seed(123)
+salary_training.samples <- diabetes_data$diabetes %>% createDataPartition(p = 0.75, list = FALSE)
+train.data  <- diabetes_data[salary_training.samples, ]
+test.data <- diabetes_data[-salary_training.samples, ]
+```
+```{r}
+## Question 2
+### 2.a
+set.seed(123)
+model <- neuralnet(diabetes~., data = train.data, hidden = 4, err.fct = "sse",act.fct = "logistic", linear.output = F, stepmax = 1e7)
+plot(model, rep = "best")
+```
+```{r}
+probabilities <- model %>% predict(test.data) %>% as.vector()
+predicted.diabetes <- ifelse(probabilities > 0.5, 1, 0)
+confusionMatrix(factor(predicted.diabetes), factor(test.data$diabetes), positive = '1')
+```
+```{r}
+### 2.b
+set.seed(123)
+#I don't know why but this bit doesn't compile, it takes so long and no progress.
+#model <- neuralnet(diabetes~., data = train.data, hidden = 4, err.fct = "ce", act.fct = "logistic", linear.output = F, stepmax = 1e7)
+#plot(model, rep = "best")
+
+#because of the problem above, can't run here as well
+#probabilities <- model %>% predict(test.data)
+#predicted.diabetes <- ifelse(probabilities > 0.5, 1, 0)
+#nn.diabetes = factor(predicted.diabetes)
+#confusionMatrix(factor(predicted.diabetes), factor(test.data$diabetes), positive = '1')
+```
+
+## Question 3
+### 3.a
+```{r}
+train.data$diabetes <- factor(train.data$diabetes)
+test.data$diabetes <- factor(test.data$diabetes)
+
+set.seed(123)
+model <- train(
+  diabetes ~., data = train.data, method = "rf",
+  trControl = trainControl("cv", number = 10),
+  importance = TRUE
+  )
+# Best tuning parameter
+model$bestTune
+model$finalModel
+```
+```{r}
+(1399+71)/(1399+71+30+0) # Overall Accuracy
+```
+```{r}
+71/101 # Sensitivity
+```
+```{r}
+1399/1399 # Specificity
+```
+```{r}
+### 3.b
+pred <- model %>% predict(test.data)
+rf.diabetes = pred
+confusionMatrix(pred, test.data$diabetes, positive = '1')
+```
+```{r}
+### 3.c
+# Plot MeanDecreaseAccuracy
+varImpPlot(model$finalModel, type = 1)
+# Plot MeanDecreaseGini
+varImpPlot(model$finalModel, type = 2)
+```
+```{r}
+### 3.d
+varImp(model, type = 1)
+```
+```{r}
+## Question 4
+set.seed(123)
+model <- train(
+  diabetes ~., data = train.data, method = "svmPoly",
+  trControl = trainControl("cv", number = 4),
+  tuneLength = 4
+  )
+plot(model)
+model$bestTune
+```
+```{r}
+svm.diabetes <- predict(model, newdata = test.data)
+confusionMatrix(svm.diabetes, test.data$diabetes)
+```
+```{r}
+## Question 5
+# had to comment out nn.diabetes due to compiling issues  mentioned above
+#pred = cbind(rf.diabetes, svm.diabetes)
+#pred.m = apply(pred,1,function(x) names(which.max(table(x)))) # Majority vote
+#pred.m = factor(pred.m, levels = c('1','2'), labels = c('0','1'))
+
+#confusionMatrix(pred.m, test.data$diabetes, positive = '1')
+```
+###############################################################################
+###############################################################################
+###############################################################################
+# Part 2
+```{r}
+## Loading data and packages
+if (!requireNamespace("tidyquant")) install.packages('tidyquant')
+if (!requireNamespace("magrittr")) install.packages('magrittr')
+if (!requireNamespace("tensorflow")) install.packages('tensorflow')
+if (!requireNamespace("zoo")) install.packages('zoo')
+library(tidyquant)
+library(magrittr)
+library(tensorflow)
+library(zoo)
+```
+```{r}
+## Question 1
+data <- read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/final/AAPL.csv', header = T)
+# transform the date from 'chr' to 'Date'
+data$Date = as.Date(data$Date)
+# visualize
+knitr::kable(head(data))
+ggplot(data, aes(x=Date, y = Close)) + geom_line()
+# normalize the stock price by using the 'min-max scaler'
+data$min_lagged = lag(data$Low)
+data$max_lagged = lag(data$High)
+data$Close_norm = (data$Close - data$min_lagged) / (data$max_lagged - data$min_lagged)
+model_data = matrix(data$Close_norm[-1])
+# The last 10 scalded close prices
+knitr::kable(tail(model_data,10))
+```
+```{r}
+## Question 2
+train_data = head(model_data,-10)
+test_data = tail(model_data, 20)
+cat(dim(train_data)[1], ' days are divided into the training set.')
+```
+```{r}
+## Question 3
+prediction = 10
+lag = prediction
+# Training X
+# we lag the data 10 times and arrange that into columns
+train_X = t(sapply(
+    1:(length(train_data) - lag - prediction + 1),
+    function(x) train_data[x:(x + lag - 1), 1]
+  ))
+# now we transform it into 3D form
+train_X <- array(
+    data = as.numeric(unlist(train_X)),
+    dim = c(
+        nrow(train_X),
+        lag,
+        1
+    )
+)
+# Training y
+train_y <- t(sapply(
+    (1 + lag):(length(train_data) - prediction + 1),
+    function(x) train_data[x:(x + prediction - 1)]
+))
+train_y <- array(
+    data = as.numeric(unlist(train_y)),
+    dim = c(
+        nrow(train_y),
+        prediction,
+        1
+    )
+)
+# Testing X
+test_X = t(sapply(
+    1:(length(test_data) - lag - prediction + 1),
+    function(x) test_data[x:(x + lag - 1), 1]
+  ))
+test_X <- array(
+    data = as.numeric(unlist(test_X)),
+    dim = c(
+        nrow(test_X),
+        lag,
+        1
+    )
+)
+# Testing y
+test_y <- t(sapply(
+    (1 + lag):(length(test_data) - prediction + 1),
+    function(x) test_data[x:(x + prediction - 1)]
+))
+test_y <- array(
+    data = as.numeric(unlist(test_y)),
+    dim = c(
+        nrow(test_y),
+        prediction,
+        1
+    )
+)
+dim(train_X)
+dim(train_y)
+dim(test_X)
+dim(test_y)
+```
+```{r}
+## Question 4
+set_random_seed(123)
+model <- keras_model_sequential()
+model %>%
+  layer_lstm(units = 200, input_shape = dim(train_X)[2:3])
+model %>%
+  layer_dense(units = dim(test_y)[2])
+
+summary(model)
+model %>% compile(loss = 'mse',
+                  optimizer = 'adam',
+                  metrics = 'mse')
+history <- model %>% fit(
+  x = train_X,
+  y = train_y,
+  batch_size =16,
+  epochs = 50,
+  validation_split = 0.1,
+  shuffle = FALSE
+)
+
+preds_norm = t(predict(model, test_X))
+preds_complete = cbind(preds_norm, tail(data, prediction))
+preds = preds_complete$preds_norm*(preds_complete$max_lagged - preds_complete$min_lagged) + preds_complete$min_lagged
+predictions = data.frame(predictions = preds, true = preds_complete$Close, date = preds_complete$Date)
+# Test MSE
+(MSE.lstm = RMSE(predictions$true, predictions$predictions)^2)
+
+# Plot forecast
+ggplot(data = predictions, aes(x = date)) +
+  geom_line(aes(y = predictions, color = 'predictions')) +
+  geom_line(aes(y = true, color = 'true'))
+
+# stock price of 3/28/22
+preds_norm1 = predict(model, test_y)[1]
+(preds1 = preds_norm1*(data$High[252] - data$Low[252]) + data$Low[252])
+```
+```{r}
+## Question 5
+set_random_seed(123)
+model <- keras_model_sequential()
+model %>%
+  layer_simple_rnn(units = 200, input_shape = dim(train_X)[2:3])
+model %>%
+  layer_dense(units = dim(test_y)[2])
+
+summary(model)
+model %>% compile(loss = 'mse',
+                  optimizer = 'adam',
+                  metrics = c('mse'))
+history <- model %>% fit(
+  x = train_X,
+  y = train_y,
+  batch_size =16,
+  epochs = 50,
+  validation_split = 0.1,
+  shuffle = FALSE
+)
+
+preds_norm = t(predict(model, test_X))
+preds_complete = cbind(preds_norm, tail(data, prediction))
+preds = preds_complete$preds_norm*(preds_complete$max_lagged - preds_complete$min_lagged) + preds_complete$min_lagged
+predictions = data.frame(predictions = preds, true = preds_complete$Close, date = preds_complete$Date)
+# Test MSE
+(MSE.rnn = RMSE(predictions$true, predictions$predictions)^2)
+
+# Plot forecast
+ggplot(data = predictions, aes(x = date)) +
+  geom_line(aes(y = predictions, color = 'predictions')) +
+  geom_line(aes(y = true, color = 'true'))
+
+
+# stock price of 2022-05-16
+preds_norm1 = predict(model, test_y)[1]
+(preds1 = preds_norm1*(data$High[252] - data$Low[252]) + data$Low[252])
+```
+```{r}
+## Question 6
+MSE.lstm
+MSE.rnn
+```
+###############################################################################
+###############################################################################
+###############################################################################
+# Part 3
+```{r}
+## Loading data and packages
+if (!requireNamespace("tidyverse")) install.packages('tidyverse')
+if (!requireNamespace("caret")) install.packages('caret')
+if (!requireNamespace("glmnet")) install.packages('glmnet')
+if (!requireNamespace("caTools")) install.packages('caTools')
+library(tidyverse)
+library(caret)
+library(glmnet)
+library(caTools)
+
+salarydata <- 
+  read.csv('/Users/mustafayigitisik/Desktop/stuff/semesters/spring 2023/ams 580/final/ds_salaries.csv', header = T)
+#salarydata <- subset(salarydata, select = -c(salary, salary_currency))
+salarydata <- na.omit(salarydata)
+cat('There were', sum(is.na(salarydata)), 'missing rows.')
+
+set.seed(123)
+salary_training.samples <- salarydata$salary_in_usd %>% createDataPartition(p = 0.75, list = FALSE)
+train.salarydata  <- salarydata[salary_training.samples, ]
+test.salarydata <- salarydata[-salary_training.samples, ]
+dim(train.salarydata) # 2817 obs
+dim(test.salarydata) # 938 obs
+```
+```{r}
+#Error in glmnet(x, y, weights = weights, offset = offset, lambda = lambda, :
+#number of observations in y (2817) not equal to the number of rows of x (938)
+
+
+#RIDGE
+# x <- model.matrix(salary~., test.salarydata)[,-1] 
+# y <- train.salarydata$salary_in_usd
+# cv <- cv.glmnet(x, y, alpha = 0)
+# cv$lambda.min
+```
+```{r}
+# model <- glmnet(x, y, alpha = 0, lambda = cv$lambda.min) # alpha=0: ridge
+# coef(model)
+# ```
+# ```{r}
+# x.test <- model.matrix(salary_in_usd ~., test.salarydata)[,-1]
+# predictions <- model %>% predict(x.test) %>% as.vector()
+# data.frame(
+#   RMSE = RMSE(predictions, test.salarydata$salary_in_usd),
+#   Rsquare = R2(predictions, test.salarydata$salary_in_usd)
+# )
+# plot(y = predictions,x = test.salarydata$salary_in_usd, xlab='Observed response',ylab='Estimated response')
+# abline(1,1)
+```
+
+```{r}
+#LASSO
+# cv <- cv.glmnet(x, y, alpha = 1)
+# cv$lambda.min
+```
+```{r}
+# model <- glmnet(x, y, alpha = 1, lambda = cv$lambda.min) # alpha=1: lasso
+# coef(model)
+# ```
+# ```{r}
+# x.test <- model.matrix(salary_in_usd ~., test.salarydata)[,-1]
+# predictions <- model %>% predict(x.test) %>% as.vector()
+# 
+# data.frame(
+#   RMSE = RMSE(predictions, test.salarydata$salary_in_usd),
+#   Rsquare = R2(predictions, test.salarydata$salary_in_usd)
+# )
+# 
+# plot(y = predictions,x = test.salarydata$salary_in_usd, xlab='Observed predictions',ylab='Estimated response')
+# abline(1,1)
+```
+```{r}
+#ELASTIC
+# model <- train(
+#   salary_in_usd ~., data = train.salarydata, method = "glmnet",
+#   trControl = trainControl("cv", number = 10),
+#   tuneLength = 10
+# )
+# model$bestTune
+```
+```{r}
+# coef(model$finalModel, model$bestTune$lambda)
+```
